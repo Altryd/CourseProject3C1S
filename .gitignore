@@ -9,6 +9,9 @@
 *.user
 *.userosscache
 *.sln.docstates
+*.sln
+*.vcxproj.filters
+*.vcxproj
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -338,3 +341,10 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+/aisd_february_2022/aisd_february_2022.vcxproj
+/aisd_february_2022/aisd_february_2022.vcxproj.filters
+/Tree_test/packages.config
+/Tree_test/pch.cpp
+/Tree_test/pch.h
+/Tree_test/test.cpp
+/Tree_test/Tree_test.vcxproj
