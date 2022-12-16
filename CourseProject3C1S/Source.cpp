@@ -10,7 +10,7 @@
 #include <cmath>
 #include <filesystem>
 
-std::vector<double> sha256_ret_keys(const std::string& str)
+std::array<double, 4> sha256_ret_keys(const std::string& str)
 {
 	unsigned char hash[SHA256_DIGEST_LENGTH];
 	SHA256_CTX sha256;
@@ -22,14 +22,14 @@ std::vector<double> sha256_ret_keys(const std::string& str)
 	// std::cout << string_view_test << std::endl;
 	const short* reinterpreted_const_short = reinterpret_cast<const short*>(hash);
 	const int* reinterpreted_const_int = reinterpret_cast<const int*>(hash);
-	std::vector<double> keys;
+	std::array<double, 4> keys;
 	double int_part;
 	for (size_t i = 0; i < 6; i += 2)
 	{
-		double to_push_back = modf((double)reinterpreted_const_short[i] / reinterpreted_const_short[i + 1], &int_part);
-		keys.push_back(to_push_back);
+		double to_array = modf((double)reinterpreted_const_short[i] / reinterpreted_const_short[i + 1], &int_part);
+		keys[i / 2] = to_array;
 	}
-	keys.push_back(reinterpreted_const_int[3] % 1000 + 1000);
+	keys[3] = reinterpreted_const_int[3] % 1000 + 1000;
 
 	/*int k1 = reinterpreted_const_short[0] / reinterpreted_const_short[1];
 
@@ -42,7 +42,7 @@ std::vector<double> sha256_ret_keys(const std::string& str)
 }
 
 
-std::unordered_map<int, std::vector<double>> get_chaotic_sequences(const std::vector<double>& initial_keys, const int N)
+std::unordered_map<int, std::vector<double>> get_chaotic_sequences(const std::array<double, 4>& initial_keys, const int N)
 {
 	std::unordered_map<int, std::vector<double>> C_sequences;
 	std::array<double, 3> values_past;
@@ -131,19 +131,20 @@ void fill_chaotic_sorting_martrix(int* data, const int start_col, const int star
 
 void print_info()
 {
-	std::cout << "Use -example to check program performance" << std::endl;
-	std::cout << "Use -enc <path_to_file> to encrypt an image" << std::endl;
-	std::cout << "Use -dec <path_to_file> -keys {path_to_keys} to decrypt an image" << std::endl;
+	std::cout << "Use --example to check program performance" << std::endl;
+	std::cout << "Use --enc <path_to_file> <string_to_form_hash> to encrypt an image" << std::endl;
+	std::cout << "Use --dec <path_to_file> --keys {path_to_keys} to decrypt an image" << std::endl;
 }
 
 int main(int argc, char** argv)
 {
 	setlocale(LC_ALL, "Ru");
 	cv::Mat image;
+	std::string string_to_hash;
 	bool encryption = false;
 	bool decryption = false;
 	switch (argc)
-	{
+{
 	case 1:
 	{
 		print_info();
@@ -151,8 +152,13 @@ int main(int argc, char** argv)
 	}
 	case 2:
 	{
+	//TODO: принимать от пользователя строку для хэша
+	//TODO заменить unordered_map на std::array / std::vector
+	//TODO: argparse
+	//TODO: openmp?
+	//TODO: check chaotic encryption parallel algorithms
 		std::string argument(argv[1]);
-		if (argument == "-example")
+		if (argument == "--example")
 		{
 			image = cv::imread("C:\\Users\\Altryd\\Downloads\\odd.png");
 		}
@@ -163,13 +169,14 @@ int main(int argc, char** argv)
 		}
 		break;
 	}
-	case 3:
+	case 4:
 	{
 		std::string argument(argv[1]);
-		if (argument == "-enc")
+		if (argument == "--enc")
 		{
 			encryption = true;
 			std::string filepath(argv[2]);
+			string_to_hash = argv[3];
 			if (std::filesystem::exists(filepath))
 			{
 				image = cv::imread(filepath);
@@ -182,20 +189,20 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			std::cout << "Use -example to check program performance" << std::endl;
-			std::cout << "Use -enc <path_to_file> to encrypt an image" << std::endl;
-			std::cout << "Use -dec <path_to_file> to deencrypt an image" << std::endl;
+			std::cout << "Use --example to check program performance" << std::endl;
+			std::cout << "Use --enc <path_to_file> to encrypt an image" << std::endl;
+			std::cout << "Use --dec <path_to_file> --keys <path_to_keys> to deecrypt an image" << std::endl;
 			return 0;
 		}
 		break;
 	}
 	case 5:
 	{
-		std::string enc_argument(argv[1]);
+		std::string dec_argument(argv[1]);
 		std::string keys_argument(argv[3]);
-		if (enc_argument == "-enc" && keys_argument == "-keys")
+		if (dec_argument == "--dec" && keys_argument == "--keys")
 		{
-			encryption = true;
+			decryption = true;
 			std::string filepath(argv[2]);
 			std::string keys_path(argv[4]);
 			if (std::filesystem::exists(filepath) && std::filesystem::exists(keys_path))
@@ -223,7 +230,7 @@ int main(int argc, char** argv)
 	// image: Vec3b , а еще BGR здесь используется!
 	// std::cout << cv::typeToString(image.type()) << std::endl;
 	// Check for failure
-
+}
 	//ENCRYPTION
 	if (encryption)
 	{
@@ -241,8 +248,9 @@ int main(int argc, char** argv)
 		{
 			dimensions_needed *= 2;
 		}
-		cv::Mat image_to_resize(dimensions_needed, dimensions_needed, image.type());
-		cv::resize(image, image_to_resize, image_to_resize.size());
+		cv::Mat image_to_resize = cv::Mat::zeros(dimensions_needed, dimensions_needed, image.type());
+		// cv::Mat image_to_resize(dimensions_needed, dimensions_needed, image.type());
+		//cv::resize(image, image_to_resize, image_to_resize.size());
 		for (int i = 0; i < image.rows; ++i)
 		{
 			for (int j = 0; j < image.cols; ++j)
@@ -251,13 +259,15 @@ int main(int argc, char** argv)
 			}
 		}
 		std::string test_image = image_to_string(image);
-		std::vector<double> sha256_res = sha256_ret_keys(test_image);
-		std::cout << "KEYS: ";
-		for (const auto it : sha256_res)
+		// string_to_hash
+		// std::array<double, 4> keys_array = sha256_ret_keys(test_image);
+		std::array<double, 4> keys_array = sha256_ret_keys(string_to_hash);
+		std::cout << "[DEBUG] KEYS: ";
+		for (const auto it : keys_array)
 		{
 			std::cout << it << std::endl;
 		}
-		auto sequences = get_chaotic_sequences(sha256_res, dimensions_needed);
+		auto sequences = get_chaotic_sequences(keys_array, dimensions_needed);
 		std::vector<std::vector<size_t>> three_matrixes(3);
 		auto C1 = sequences[1];
 		sequences[1].clear();
@@ -272,10 +282,8 @@ int main(int argc, char** argv)
 		int* fsm_An = new int[dimensions_needed * dimensions_needed];
 		fill_chaotic_sorting_martrix(fsm_An, 0, 0, dimensions_needed, dimensions_needed * dimensions_needed, dimensions_needed, 1, fsm);
 
-
-
-
-		auto img_copy = image_to_resize.clone();  //CRUCIAL !!
+		// auto img_copy = image_to_resize.clone();  //CRUCIAL !!
+		cv::Mat img_copy = cv::Mat::zeros(image_to_resize.rows, image_to_resize.cols, CV_8UC3);
 		cv::Mat blue_channel;
 		cv::Mat green_channel;
 		cv::Mat red_channel;
@@ -283,9 +291,10 @@ int main(int argc, char** argv)
 		cv::Mat channels_orig[3];
 		cv::split(img_copy, channels);
 		cv::split(image_to_resize, channels_orig);
+		// cv::imshow("test", image_to_resize);
+		// cv::waitKey(0);
 		for (size_t channel = 0; channel < 3; ++channel)
 		{
-
 			for (size_t i = 0; i < dimensions_needed; ++i)
 			{
 				for (size_t j = 0; j < dimensions_needed; ++j)
@@ -302,7 +311,7 @@ int main(int argc, char** argv)
 		}
 		cv::merge(channels, 3, img_copy);
 		FILE* fptr_write = fopen("example", "wb");
-		fwrite(sha256_res.data(), sizeof(double), 4, fptr_write);
+		fwrite(keys_array.data(), sizeof(double), 4, fptr_write);
 		fclose(fptr_write);
 
 
@@ -339,39 +348,17 @@ int main(int argc, char** argv)
 		} */
 		std::cout << std::endl;
 		// cv::imshow("encrypted", img_copy);
-		cv::imwrite("encrypted.jpg", img_copy);
-	}
-	// cv::imshow("orig2_withclone", image_to_resize);
-	if (decryption)
-	{
-		std::string keys_path = argv[4];
-		double* keys = new double[4];
-		FILE* fptr_read = fopen(keys_path.c_str(), "rb");
-		fread(keys, sizeof(double), 4, fptr_read);
-		fclose(fptr_read);
-		std::array<double, 4> keys_array({ keys[0], keys[1], keys[2], keys[3] });
-		delete[] keys;
-		for (size_t i = 0; i < keys_array.size(); ++i)
-		{
-			std::cout << keys_array[i] << std::endl;
-		}
-
-
-
-		int fsm[4] = { 4, 2, 1, 3 };
-		int* fsm_An = new int[dimensions_needed * dimensions_needed];
-		fill_chaotic_sorting_martrix(fsm_An, 0, 0, dimensions_needed, dimensions_needed * dimensions_needed, dimensions_needed, 1, fsm);
-
-
-		//DECRYPTION
-		auto img_copy = image_to_resize.clone();
-
-		cv::Mat channels[3];
+		cv::imwrite("encrypted.png", img_copy);   // если использовать JPG - выходит плохо
+		
+		
+		//TEST
+		/*
 		cv::Mat decrypted_channels[3];
-		auto cloned = img_copy.clone();
+		// cv::Mat will_be_decrypted = img_copy.clone();
+		cv::Mat will_be_decrypted = cv::imread("encrypted.png");
 
-		cv::split(img_copy, channels);
-		cv::split(cloned, decrypted_channels);
+		cv::split(will_be_decrypted, channels);
+		cv::split(img_copy, decrypted_channels);
 		for (size_t channel = 0; channel < 3; ++channel)
 		{
 
@@ -389,89 +376,81 @@ int main(int argc, char** argv)
 				}
 			}
 		}
-		cv::merge(decrypted_channels, 3, cloned);
-		cv::imshow("decrypted?", cloned);
+		cv::Mat test = cv::Mat::zeros(image.rows, image.cols, CV_8UC3);
+		cv::merge(decrypted_channels, 3, test);
+		cv::imwrite("decrypted.jpg", test);
+		cv::imshow("decrypted_test", test);
+		cv::waitKey(0);
+		*/
 	}
-	// cv::waitKey(0);
-	/*for (size_t i = 0; i < dimensions_needed; ++i)
+	if (decryption)
 	{
-		for (size_t j = 0; j < dimensions_needed; ++j)
+		// std::cout << cv::typeToString(image.type()) << std::endl;
+		if (image.rows % 2 != 0 || image.cols != image.rows)
 		{
-			auto row_s1 = S1[i * dimensions_needed + j] / dimensions_needed;
-			auto col_s1 = S1[i * dimensions_needed + j] % dimensions_needed;
-			auto row_fsm = (fsm_An[i * dimensions_needed + j] - 1) / dimensions_needed;
-			auto col_fsm = (fsm_An[i * dimensions_needed + j] - 1) % dimensions_needed;
-			img_copy.at<cv::Vec3b>(row_s1, col_s1) = image_to_resize.at<cv::Vec3b>(row_fsm, col_fsm);
+			std::cout << "The image is corrupted" << std::endl;
+			return -1;
 		}
-	}
-	cv::imshow("half-encrypted", img_copy);
-
-
-	//DECRYPTION
-	auto decrypted = img_copy.clone();
-	// cv::waitKey(0);
-	for (size_t i = 0; i < dimensions_needed; ++i)
-	{
-		for (size_t j = 0; j < dimensions_needed; ++j)
+		int dimensions_needed = image.rows;
+		std::string keys_path = argv[4];
+		double* keys = new double[4];
+		FILE* fptr_read = fopen(keys_path.c_str(), "rb");
+		fread(keys, sizeof(double), 4, fptr_read);
+		fclose(fptr_read);
+		std::array<double, 4> keys_array({ keys[0], keys[1], keys[2], keys[3] });
+		delete[] keys;
+		std::cout << "[DEBUG] KEYS: ";
+		for (size_t i = 0; i < keys_array.size(); ++i)
 		{
-			auto row_s1 = S1[i * dimensions_needed + j] / dimensions_needed;
-			auto col_s1 = S1[i * dimensions_needed + j] % dimensions_needed;
-			auto row_fsm = (fsm_An[i * dimensions_needed + j] - 1) / dimensions_needed;
-			auto col_fsm = (fsm_An[i * dimensions_needed + j] - 1) % dimensions_needed;
-			decrypted.at<cv::Vec3b>(row_fsm, col_fsm) = img_copy.at<cv::Vec3b>(row_s1, col_s1);
+			std::cout << keys_array[i] << std::endl;
 		}
-	}
-	cv::imshow("decrypted?", decrypted);
-	// cv::waitKey(0);
-
-
-
-	auto C2 = sequences[2];
-	std::vector<int> T(dimensions_needed * dimensions_needed);
-	for (size_t i = 0; i < T.size(); ++i)
-	{
-		int test_without_mod = (int)ceil((long int)C2[i] * (long int)pow(10, 5));
-		int ceil_test = (int)ceil((long int)C2[i] * (long int)pow(10, 5)) % 256;
-		// T[i] = ((int)ceil((long int)C2[i] * (long int)pow(10, 5)) % 256);  // TODO: округление вверх
-		T[i] = ((int)ceil((long int)C2[i]) % 256);
-	}
-	delete[] fsm_An;
-	// auto sequences = get_chaotic_sequences(sha256_res, dimensions_needed);
-
-
-	//TODO: #5 task from habr:
-	auto C3 = sequences[3];
-	sequences[3].clear();
-	auto S3 = sort_ranking(C3);
-	C3.clear();
-	auto P1 = img_copy.clone();
-	auto kyky = img_copy.at<cv::Vec3b>(0);
-	cv::Vec3b first_pixel;
-	for (size_t k = 0; k < 3; ++k)
-	{
-		first_pixel[k] = T[0] ^ img_copy.at<cv::Vec3b>(0, 0)[k];
-	}
-	P1.at<cv::Vec3b>(0, 0) = first_pixel;
-	// std::cout << kyky.value[0] << std::endl;
-	// P1.at<cv::Vec3b>(0, 0) = cv::Vec3b(T[0]) ^ img_copy.at<cv::Vec3b>(0);
-	// P1[0] = T[0] ^ linear_img.at<cv::Vec3b>(0);
-	for (size_t i = 1; i < dimensions_needed * dimensions_needed; ++i)
-	{
-		size_t row_prev = (i - 1) / dimensions_needed;
-		size_t col_prev = (i - 1) % dimensions_needed;
-		size_t row_pres = i / dimensions_needed;
-		size_t col_pres = i % dimensions_needed;
-		cv::Vec3b new_pixel;
-		for (size_t k = 0; k < 3; ++k)
+		auto sequences = get_chaotic_sequences(keys_array, dimensions_needed);
+		std::vector<std::vector<size_t>> three_matrixes(3);
+		auto C1 = sequences[1];
+		sequences[1].clear();
+		for (size_t i = 0; i < 3; ++i)
 		{
-			new_pixel[k] = P1.at<cv::Vec3b>(row_pres, col_pres)[k] ^ T[i] ^ img_copy.at<cv::Vec3b>(row_pres, col_pres)[k];
+			size_t begin = dimensions_needed * dimensions_needed * i;
+			std::vector<double> test(C1.begin() + begin, C1.begin() + begin + dimensions_needed * dimensions_needed);
+			three_matrixes[i] = sort_ranking(test);
 		}
-		P1.at<cv::Vec3b>(row_pres, col_pres) = new_pixel;
-		// new_pixel[0] = P1.at<cv::Vec3b>(row_pres, col_prev)[0];
-		// P1.at<cv::Vec3b>(row_pres, col_pres) = P1.at<cv::Vec3b>(row_prev, col_prev) ^ T[i] ^ linear_img.at<cv::Vec3b>(i);
+
+
+		int fsm[4] = { 4, 2, 1, 3 };
+		int* fsm_An = new int[dimensions_needed * dimensions_needed];
+		fill_chaotic_sorting_martrix(fsm_An, 0, 0, dimensions_needed, dimensions_needed * dimensions_needed, dimensions_needed, 1, fsm);
+
+
+		//DECRYPTION
+
+		cv::Mat channels[3];
+		cv::Mat decrypted_channels[3];
+		cv::Mat will_be_decrypted = image.clone();
+
+		cv::split(image, channels);
+		cv::split(will_be_decrypted, decrypted_channels);
+		for (size_t channel = 0; channel < 3; ++channel)
+		{
+
+			for (size_t i = 0; i < dimensions_needed; ++i)
+			{
+				for (size_t j = 0; j < dimensions_needed; ++j)
+				{
+					/// std::cout << cv::typeToString(channels[0].type()) << std::endl;
+					auto row_s1 = three_matrixes[channel][i * dimensions_needed + j] / dimensions_needed;
+					auto col_s1 = three_matrixes[channel][i * dimensions_needed + j] % dimensions_needed;
+					auto row_fsm = (fsm_An[i * dimensions_needed + j] - 1) / dimensions_needed;
+					auto col_fsm = (fsm_An[i * dimensions_needed + j] - 1) % dimensions_needed;
+					decrypted_channels[channel].at<uchar>(row_fsm, col_fsm) = channels[channel].at<uchar>(row_s1, col_s1);
+					// img_copy.at<cv::Vec3b>(row_s1, col_s1) = image_to_resize.at<cv::Vec3b>(row_fsm, col_fsm);
+				}
+			}
+		}
+		cv::Mat test = cv::Mat::zeros(image.rows, image.cols, CV_8UC3);
+		cv::merge(decrypted_channels, 3, test);
+		cv::imwrite("decrypted.png", test); // will be bad if using jpg
+		// cv::imshow("decrypted?", test);
 	}
-	cv::imshow("259_string", P1);
-	cv::waitKey(0);*/
 
 	return 0;
 	}
