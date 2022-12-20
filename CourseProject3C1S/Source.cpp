@@ -42,14 +42,15 @@ std::array<double, 4> sha256_ret_keys(const std::string& str)
 }
 
 
-std::unordered_map<int, std::vector<double>> get_chaotic_sequences(const std::array<double, 4>& initial_keys, const int N)
+std::array<std::vector<double>, 3> get_chaotic_sequences(const std::array<double, 4>& initial_keys, const int N)
 {
-	std::unordered_map<int, std::vector<double>> C_sequences;
-	std::array<double, 3> values_past;
+	std::array<std::vector<double>, 3> C_sequences;
+	std::array<double, 4> values_past;
+	values_past = initial_keys;
 	std::copy(initial_keys.begin(), initial_keys.begin() + 3, values_past.begin());
 	double h = 0.001;  //step for Chen system
 	double a = 35, b = 3, c = 28;  // parameters for chen system
-	std::array<double, 3> values_present = values_past;
+	std::array<double, 4> values_present = values_past;
 	for (size_t i = 0; i < static_cast<size_t>(initial_keys.back()); ++i)
 	{
 		// xt = x0 + h*(35*(y0-x0))
@@ -68,9 +69,9 @@ std::unordered_map<int, std::vector<double>> get_chaotic_sequences(const std::ar
 		values_present[1] = values_past[1] + h * ((c - a) * values_past[0] - values_past[0] * values_past[2] + 28 * values_past[1]);
 		values_present[2] = values_past[2] + h * (values_past[0] * values_past[1] - 3 * values_past[2]);
 		std::swap(values_past, values_present);
-		C_sequences[1].push_back(values_present[0]);   //C1
-		C_sequences[2].push_back(values_present[1]);   //C2
-		C_sequences[3].push_back(values_present[2]);   //C3
+		C_sequences[0].push_back(values_present[0]);   //C1
+		C_sequences[1].push_back(values_present[1]);   //C2
+		C_sequences[2].push_back(values_present[2]);   //C3
 	}
 
 	return C_sequences;
@@ -131,7 +132,6 @@ void fill_chaotic_sorting_martrix(int* data, const int start_col, const int star
 
 void print_info()
 {
-	std::cout << "Use --example to check program performance" << std::endl;
 	std::cout << "Use --enc <path_to_file> <string_to_form_hash> to encrypt an image" << std::endl;
 	std::cout << "Use --dec <path_to_file> --keys {path_to_keys} to decrypt an image" << std::endl;
 }
@@ -150,25 +150,11 @@ int main(int argc, char** argv)
 		print_info();
 		return 0;
 	}
-	case 2:
-	{
 	//TODO: принимать от пользователя строку для хэша
 	//TODO заменить unordered_map на std::array / std::vector
 	//TODO: argparse
 	//TODO: openmp?
 	//TODO: check chaotic encryption parallel algorithms
-		std::string argument(argv[1]);
-		if (argument == "--example")
-		{
-			image = cv::imread("C:\\Users\\Altryd\\Downloads\\odd.png");
-		}
-		else
-		{
-			print_info();
-			return 0;
-		}
-		break;
-	}
 	case 4:
 	{
 		std::string argument(argv[1]);
@@ -189,9 +175,7 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			std::cout << "Use --example to check program performance" << std::endl;
-			std::cout << "Use --enc <path_to_file> to encrypt an image" << std::endl;
-			std::cout << "Use --dec <path_to_file> --keys <path_to_keys> to deecrypt an image" << std::endl;
+			print_info();
 			return 0;
 		}
 		break;
@@ -262,15 +246,15 @@ int main(int argc, char** argv)
 		// string_to_hash
 		// std::array<double, 4> keys_array = sha256_ret_keys(test_image);
 		std::array<double, 4> keys_array = sha256_ret_keys(string_to_hash);
-		std::cout << "[DEBUG] KEYS: ";
+		/*std::cout << "[DEBUG] KEYS: ";
 		for (const auto it : keys_array)
 		{
 			std::cout << it << std::endl;
-		}
+		}*/
 		auto sequences = get_chaotic_sequences(keys_array, dimensions_needed);
 		std::vector<std::vector<size_t>> three_matrixes(3);
-		auto C1 = sequences[1];
-		sequences[1].clear();
+		auto C1 = sequences[0];
+		sequences[0].clear();
 		for (size_t i = 0; i < 3; ++i)
 		{
 			size_t begin = dimensions_needed * dimensions_needed * i;
@@ -310,7 +294,7 @@ int main(int argc, char** argv)
 			}
 		}
 		cv::merge(channels, 3, img_copy);
-		FILE* fptr_write = fopen("example", "wb");
+		FILE* fptr_write = fopen("keys", "wb");
 		fwrite(keys_array.data(), sizeof(double), 4, fptr_write);
 		fclose(fptr_write);
 
@@ -399,15 +383,15 @@ int main(int argc, char** argv)
 		fclose(fptr_read);
 		std::array<double, 4> keys_array({ keys[0], keys[1], keys[2], keys[3] });
 		delete[] keys;
-		std::cout << "[DEBUG] KEYS: ";
+		/*std::cout << "[DEBUG] KEYS: ";
 		for (size_t i = 0; i < keys_array.size(); ++i)
 		{
 			std::cout << keys_array[i] << std::endl;
-		}
+		}*/
 		auto sequences = get_chaotic_sequences(keys_array, dimensions_needed);
 		std::vector<std::vector<size_t>> three_matrixes(3);
-		auto C1 = sequences[1];
-		sequences[1].clear();
+		auto C1 = sequences[0];
+		sequences[0].clear();
 		for (size_t i = 0; i < 3; ++i)
 		{
 			size_t begin = dimensions_needed * dimensions_needed * i;
