@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <cmath>
 #include <filesystem>
+#include <chrono>
 
 std::array<double, 4> sha256_ret_keys(const std::string& str)
 {
@@ -150,8 +151,6 @@ int main(int argc, char** argv)
 		print_info();
 		return 0;
 	}
-	//TODO: принимать от пользователя строку для хэша
-	//TODO заменить unordered_map на std::array / std::vector
 	//TODO: argparse
 	//TODO: openmp?
 	//TODO: check chaotic encryption parallel algorithms
@@ -218,6 +217,7 @@ int main(int argc, char** argv)
 	//ENCRYPTION
 	if (encryption)
 	{
+		auto begin = std::chrono::steady_clock::now();
 		if (image.empty())
 		{
 			std::cout << "Image Not Found!!!" << std::endl;
@@ -294,7 +294,7 @@ int main(int argc, char** argv)
 			}
 		}
 		cv::merge(channels, 3, img_copy);
-		FILE* fptr_write = fopen("keys", "wb");
+		FILE* fptr_write = fopen("keys.bin", "wb");
 		fwrite(keys_array.data(), sizeof(double), 4, fptr_write);
 		fclose(fptr_write);
 
@@ -331,44 +331,15 @@ int main(int argc, char** argv)
 			std::cout << arr[i] << " ";
 		} */
 		std::cout << std::endl;
-		// cv::imshow("encrypted", img_copy);
 		cv::imwrite("encrypted.png", img_copy);   // если использовать JPG - выходит плохо
-		
-		
-		//TEST
-		/*
-		cv::Mat decrypted_channels[3];
-		// cv::Mat will_be_decrypted = img_copy.clone();
-		cv::Mat will_be_decrypted = cv::imread("encrypted.png");
-
-		cv::split(will_be_decrypted, channels);
-		cv::split(img_copy, decrypted_channels);
-		for (size_t channel = 0; channel < 3; ++channel)
-		{
-
-			for (size_t i = 0; i < dimensions_needed; ++i)
-			{
-				for (size_t j = 0; j < dimensions_needed; ++j)
-				{
-					/// std::cout << cv::typeToString(channels[0].type()) << std::endl;
-					auto row_s1 = three_matrixes[channel][i * dimensions_needed + j] / dimensions_needed;
-					auto col_s1 = three_matrixes[channel][i * dimensions_needed + j] % dimensions_needed;
-					auto row_fsm = (fsm_An[i * dimensions_needed + j] - 1) / dimensions_needed;
-					auto col_fsm = (fsm_An[i * dimensions_needed + j] - 1) % dimensions_needed;
-					decrypted_channels[channel].at<uchar>(row_fsm, col_fsm) = channels[channel].at<uchar>(row_s1, col_s1);
-					// img_copy.at<cv::Vec3b>(row_s1, col_s1) = image_to_resize.at<cv::Vec3b>(row_fsm, col_fsm);
-				}
-			}
-		}
-		cv::Mat test = cv::Mat::zeros(image.rows, image.cols, CV_8UC3);
-		cv::merge(decrypted_channels, 3, test);
-		cv::imwrite("decrypted.jpg", test);
-		cv::imshow("decrypted_test", test);
-		cv::waitKey(0);
-		*/
+		auto end = std::chrono::steady_clock::now();
+		std::chrono::duration<double> diff = end - begin;
+		std::cout << "The encryption took " << diff.count() << " seconds" << std::endl;
+		std::cout << "The image has been successfully encrypted\nEncrypted image: encrypted.png\nKeys: keys.bin" << std::endl;
 	}
 	if (decryption)
 	{
+		auto begin = std::chrono::steady_clock::now();
 		// std::cout << cv::typeToString(image.type()) << std::endl;
 		if (image.rows % 2 != 0 || image.cols != image.rows)
 		{
@@ -433,7 +404,10 @@ int main(int argc, char** argv)
 		cv::Mat test = cv::Mat::zeros(image.rows, image.cols, CV_8UC3);
 		cv::merge(decrypted_channels, 3, test);
 		cv::imwrite("decrypted.png", test); // will be bad if using jpg
-		// cv::imshow("decrypted?", test);
+		auto end = std::chrono::steady_clock::now();
+		std::chrono::duration<double> diff = end - begin;
+		std::cout << "The decryption took " << diff.count() << " seconds" << std::endl;
+		std::cout << "The image has been successfully decrypted\nDecrypted image: decrypted.png" << std::endl;
 	}
 
 	return 0;
